@@ -1,0 +1,6 @@
+{
+  "name": "PROOF360 RDC - Vérification Physique de Projets Financés",
+  "description": "Infrastructure numérique de vérification physique, d'intégrité de preuve (SHA-256, géofencing, anti-mock GPS) et d'audit pour les projets de développement et d'infrastructures en RDC.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
