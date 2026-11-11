@@ -1409,6 +1409,7 @@ export default function App() {
             anomalies={state.anomalies}
             payouts={state.payouts}
             envAudits={state.envAudits || []}
+            auditLog={state.auditLog}
           />
         )}
 

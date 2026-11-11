@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Site, Mission, Inspection, Anomaly, MilestonePayout, EnvReforestationAudit } from '../types/proof360';
+import { Site, Mission, Inspection, Anomaly, MilestonePayout, EnvReforestationAudit, AuditLedgerEntry } from '../types/proof360';
 import { 
   BarChart3, 
   Download, 
@@ -21,7 +21,8 @@ import {
   Trees,
   Leaf,
   Award,
-  Sparkles
+  Sparkles,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -34,6 +35,7 @@ import {
   Cell 
 } from 'recharts';
 import { generateIatiXml, IatiExportOptions } from '../services/iatiXmlService';
+import { generateExecutiveConsolidatedPdf } from '../services/pdfExportService';
 
 interface ExecutiveInstitutionalDashboardProps {
   sites: Site[];
@@ -42,6 +44,7 @@ interface ExecutiveInstitutionalDashboardProps {
   anomalies: Anomaly[];
   payouts: MilestonePayout[];
   envAudits?: EnvReforestationAudit[];
+  auditLog?: AuditLedgerEntry[];
 }
 
 export const ExecutiveInstitutionalDashboard: React.FC<ExecutiveInstitutionalDashboardProps> = ({
@@ -50,13 +53,16 @@ export const ExecutiveInstitutionalDashboard: React.FC<ExecutiveInstitutionalDas
   inspections,
   anomalies,
   payouts,
-  envAudits = []
+  envAudits = [],
+  auditLog = []
 }) => {
   const [activeSection, setActiveSection] = useState<'OVERVIEW' | 'IATI_EXPORTER'>('OVERVIEW');
   const [copiedIati, setCopiedIati] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [apiPublishSuccess, setApiPublishSuccess] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isGeneratingExecPdf, setIsGeneratingExecPdf] = useState(false);
+  const [execPdfSuccessInfo, setExecPdfSuccessInfo] = useState<string | null>(null);
 
   // IATI Exporter Configuration state
   const [targetDonor, setTargetDonor] = useState<IatiExportOptions['targetDonor']>('WORLD_BANK');
@@ -191,6 +197,49 @@ export const ExecutiveInstitutionalDashboard: React.FC<ExecutiveInstitutionalDas
     }, 1200);
   };
 
+  const handleGenerateExecutivePdf = async () => {
+    try {
+      setIsGeneratingExecPdf(true);
+      const result = await generateExecutiveConsolidatedPdf({
+        sitesCount: sites.length,
+        totalBudgetUsd: totalBudget,
+        totalDisbursedUsd: totalDisbursed,
+        deliveredPercent: deliveryRatioPercent,
+        approvedCount: approvedMissions,
+        totalMissionsCount: missions.length,
+        provinceStats,
+        carbonData: carbonProvinceData,
+        totalCarbonSequestrationTons,
+        totalLivingTreesSum,
+        totalCreditsValueUsd,
+        averageSurvivalRate,
+        recentAuditLogs: auditLog && auditLog.length > 0 ? auditLog.slice(-6).map(a => ({
+          action: a.action,
+          actorName: a.actorName,
+          entityId: a.entityId,
+          timestamp: a.timestamp,
+          hash: a.entryHash
+        })) : []
+      });
+
+      const downloadUrl = URL.createObjectURL(result.blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = result.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(downloadUrl);
+
+      setExecPdfSuccessInfo(`Synthèse Exécutive Nationale PDF générée (${result.filename}) avec scellement SHA-256 et opposabilité OHADA !`);
+      setTimeout(() => setExecPdfSuccessInfo(null), 8000);
+    } catch (err) {
+      console.error('Erreur lors de la génération de la synthèse exécutive:', err);
+    } finally {
+      setIsGeneratingExecPdf(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -205,7 +254,7 @@ export const ExecutiveInstitutionalDashboard: React.FC<ExecutiveInstitutionalDas
           </h2>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg text-xs font-semibold">
             <button
               onClick={() => setActiveSection('OVERVIEW')}
@@ -232,6 +281,16 @@ export const ExecutiveInstitutionalDashboard: React.FC<ExecutiveInstitutionalDas
           </div>
 
           <button
+            onClick={handleGenerateExecutivePdf}
+            disabled={isGeneratingExecPdf}
+            className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-600 disabled:bg-emerald-900 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-xs whitespace-nowrap"
+            title="Générer la Synthèse Exécutive Nationale au format PDF consolidé avec graphiques carbone et registre d'audit"
+          >
+            <FileText className={`w-3.5 h-3.5 ${isGeneratingExecPdf ? 'animate-bounce' : ''}`} />
+            <span>{isGeneratingExecPdf ? 'Génération...' : 'Générer Synthèse Exécutive'}</span>
+          </button>
+
+          <button
             onClick={() => {
               setActiveSection('IATI_EXPORTER');
               handleDownloadIati();
@@ -245,6 +304,16 @@ export const ExecutiveInstitutionalDashboard: React.FC<ExecutiveInstitutionalDas
       </div>
 
       {/* Notifications Strip */}
+      {execPdfSuccessInfo && (
+        <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-950 font-semibold flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{execPdfSuccessInfo}</span>
+          </div>
+          <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">PDF 1.7 Scellé</span>
+        </div>
+      )}
+
       {downloadSuccess && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 font-semibold flex items-center gap-2 shadow-xs">
           <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />

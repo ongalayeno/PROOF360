@@ -1,7 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Inspection, Mission, Site } from '../types/proof360';
 import { QRCodeSvg } from './QRCodeSvg';
-import { ShieldCheck, Printer, X, ExternalLink, MapPin, Calendar, Check, AlertCircle } from 'lucide-react';
+import { 
+  ShieldCheck, 
+  Printer, 
+  X, 
+  ExternalLink, 
+  MapPin, 
+  Calendar, 
+  Check, 
+  AlertCircle,
+  Download,
+  FileCheck,
+  Code2,
+  CheckCircle2,
+  Shield,
+  Copy
+} from 'lucide-react';
+import { generateSignedInspectionPdf, SignedPdfExportResult } from '../services/pdfExportService';
 
 interface CertifiedReportModalProps {
   inspection: Inspection;
@@ -16,8 +32,43 @@ export const CertifiedReportModal: React.FC<CertifiedReportModalProps> = ({
   onClose,
   onOpenPublicVerification
 }) => {
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportResult, setExportResult] = useState<SignedPdfExportResult | null>(null);
+  const [showXmpModal, setShowXmpModal] = useState(false);
+  const [copiedXmp, setCopiedXmp] = useState(false);
+
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleExportSignedPdf = async () => {
+    try {
+      setIsExporting(true);
+      const result = await generateSignedInspectionPdf(inspection, mission);
+      
+      // Trigger download
+      const downloadUrl = URL.createObjectURL(result.blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = result.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(downloadUrl);
+
+      setExportResult(result);
+    } catch (err) {
+      console.error('Erreur lors de la génération du PDF signé:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleCopyXmp = () => {
+    if (!exportResult) return;
+    navigator.clipboard.writeText(exportResult.xmpMetadataXml);
+    setCopiedXmp(true);
+    setTimeout(() => setCopiedXmp(false), 2000);
   };
 
   const verifyUrl = `${window.location.origin}/v/${inspection.reportNumber || inspection.id}?sig=${inspection.publicVerificationSig || 'verified'}`;
@@ -26,12 +77,21 @@ export const CertifiedReportModal: React.FC<CertifiedReportModalProps> = ({
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-4xl w-full my-8 shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
         {/* Modal Action Bar (Hidden during print) */}
-        <div className="no-print bg-slate-900 text-white px-6 py-3 flex items-center justify-between text-xs border-b border-slate-800">
+        <div className="no-print bg-slate-900 text-white px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs border-b border-slate-800">
           <div className="flex items-center gap-2 font-medium">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span>Rapport Certifié d'Audit Physique · PROOF360 RDC</span>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportSignedPdf}
+              disabled={isExporting}
+              className="px-3 py-1.5 font-bold text-white bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+              title="Génère un PDF officiel intégrant l'empreinte SHA-256 et la signature dans les métadonnées XMP"
+            >
+              <Download className={`w-3.5 h-3.5 ${isExporting ? 'animate-bounce' : ''}`} />
+              <span>{isExporting ? 'Génération...' : 'Exporter Rapport Signé'}</span>
+            </button>
             <button
               onClick={() => onOpenPublicVerification(inspection.reportNumber || inspection.id)}
               className="px-3 py-1.5 font-semibold text-emerald-300 hover:text-emerald-200 bg-emerald-950/80 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1"
@@ -44,7 +104,7 @@ export const CertifiedReportModal: React.FC<CertifiedReportModalProps> = ({
               className="px-3 py-1.5 font-semibold text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Imprimer / PDF</span>
+              <span>Imprimer</span>
             </button>
             <button
               onClick={onClose}
@@ -54,6 +114,37 @@ export const CertifiedReportModal: React.FC<CertifiedReportModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* XMP Export Notification Banner */}
+        {exportResult && (
+          <div className="no-print bg-emerald-50 border-b border-emerald-200 px-6 py-3 flex items-center justify-between gap-3 text-xs text-emerald-900">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div>
+                <span className="font-bold">Fichier PDF Signé Téléchargé : </span>
+                <span className="font-mono">{exportResult.filename}</span>
+                <span className="text-slate-600 ml-2">
+                  (Hash SHA-256 et signature numérique intégrés dans les métadonnées XMP)
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowXmpModal(true)}
+                className="px-2.5 py-1 font-semibold text-emerald-800 hover:text-emerald-900 bg-emerald-100 hover:bg-emerald-200 rounded transition-colors cursor-pointer inline-flex items-center gap-1"
+              >
+                <Code2 className="w-3 h-3" />
+                <span>Voir Métadonnées XMP</span>
+              </button>
+              <button
+                onClick={() => setExportResult(null)}
+                className="text-emerald-700 hover:text-emerald-950"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* The Printable Official Document */}
         <div className="p-8 sm:p-12 space-y-8 bg-white text-slate-900" id="proof-report-document">
@@ -262,18 +353,80 @@ export const CertifiedReportModal: React.FC<CertifiedReportModalProps> = ({
             </div>
 
             {/* Cryptographic SHA-256 Seal Box */}
-            <div className="sm:max-w-xs w-full bg-slate-100 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
-              <div className="text-[10px] uppercase font-bold text-slate-500">Empreinte Globale Document SHA-256</div>
-              <div className="font-mono text-[9px] break-all text-slate-700 select-all">
+            <div className="sm:max-w-xs w-full bg-slate-100 p-3 rounded-lg border border-slate-200 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] uppercase font-bold text-slate-500">Empreinte SHA-256 & Métadonnées XMP</div>
+                <span className="text-[9px] font-mono bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">
+                  XMP Validé
+                </span>
+              </div>
+              <div className="font-mono text-[9px] break-all text-slate-700 select-all bg-white p-1 rounded border border-slate-200">
                 {inspection.pdfSha256 || '4a9b6c1e5f8842d3873495f87b8d8e3c1209348e718b5c43d79048a6094eef19'}
               </div>
-              <div className="text-[9px] text-slate-400">
-                Garantit qu'aucun pixel ou chiffre n'a été altéré depuis la validation.
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={handleExportSignedPdf}
+                  disabled={isExporting}
+                  className="w-full py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded font-bold text-[11px] transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5 shadow-xs"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>{isExporting ? 'Exportation...' : 'Télécharger PDF Signé'}</span>
+                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Embedded XMP Metadata Packet Viewer Modal */}
+      {showXmpModal && exportResult && (
+        <div className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 text-white shadow-2xl space-y-4 text-xs font-mono">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Code2 className="w-4 h-4 text-emerald-400" />
+                <span className="font-bold text-slate-200 text-sm">Métadonnées XMP Certifiées (ISO 16684-1)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyXmp}
+                  className="px-2.5 py-1 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded transition-colors cursor-pointer inline-flex items-center gap-1 text-[11px]"
+                >
+                  {copiedXmp ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedXmp ? 'Copié !' : 'Copier XML'}</span>
+                </button>
+                <button
+                  onClick={() => setShowXmpModal(false)}
+                  className="text-slate-400 hover:text-white p-1"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1 text-slate-400 text-[11px] font-sans">
+              <p>
+                Ce flux XML est injecté directement dans l'arbre d'objets du document PDF (<code className="text-emerald-400">/Type /Metadata /Subtype /XML</code>).
+                Il contient l'empreinte SHA-256 cryptographique, les coordonnées WGS84 et la signature pour opposabilité légale immédiate (normes OHADA &amp; RFC 3161).
+              </p>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 max-h-80 overflow-y-auto text-emerald-400 text-[11px] leading-relaxed select-all">
+              <pre className="whitespace-pre">{exportResult.xmpMetadataXml}</pre>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setShowXmpModal(false)}
+                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

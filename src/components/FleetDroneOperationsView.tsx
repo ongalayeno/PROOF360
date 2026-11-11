@@ -1,6 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FleetRoutePlan, DroneWaypointPlan, Site } from '../types/proof360';
-import { Truck, Plane, Navigation, Shield, CloudRain, AlertTriangle, Compass, CheckCircle2 } from 'lucide-react';
+import { 
+  Truck, 
+  Plane, 
+  Navigation, 
+  Shield, 
+  CloudRain, 
+  AlertTriangle, 
+  Compass, 
+  CheckCircle2, 
+  Video,
+  Droplets,
+  Wind,
+  ArrowRight,
+  BellRing,
+  Sparkles,
+  MapPin,
+  AlertOctagon,
+  Clock,
+  Layers,
+  Check
+} from 'lucide-react';
+import { DroneVisionInspect } from './DroneVisionInspect';
 
 interface FleetDroneOperationsViewProps {
   fleetRoutes: FleetRoutePlan[];
@@ -8,17 +29,277 @@ interface FleetDroneOperationsViewProps {
   sites: Site[];
 }
 
+export interface WeatherCorridorRisk {
+  id: string;
+  corridorName: string;
+  roadNumber: string;
+  provinces: string;
+  rainfallMm24h: number;
+  soilSaturationPercent: number;
+  riskLevel: 'CRITIQUE_ROUGE' | 'ELEVE_ORANGE' | 'MODERE_JAUNE' | 'FAIBLE_VERT';
+  predictedImpassableDurationDays: number;
+  criticalPoints: string[];
+  impactedSites: {
+    siteName: string;
+    sector: string;
+    delayDays: number;
+    financialExposureUsd: number;
+    contingencyAction: string;
+  }[];
+}
+
 export const FleetDroneOperationsView: React.FC<FleetDroneOperationsViewProps> = ({
   fleetRoutes,
   droneMissions,
   sites
 }) => {
-  const [activeTab, setActiveTab] = useState<'FLEET' | 'DRONE'>('FLEET');
+  const [activeTab, setActiveTab] = useState<'DRONE_VISION' | 'FLEET' | 'DRONE'>('FLEET');
   const [sosSent, setSosSent] = useState(false);
+  const [weatherScenario, setWeatherScenario] = useState<'PEAK_RAIN' | 'MODERATE_RAIN' | 'DRY_SEASON'>('PEAK_RAIN');
+  const [showWeatherDetails, setShowWeatherDetails] = useState(true);
+  const [alertSentNotification, setAlertSentNotification] = useState<string | null>(null);
 
   const handleTriggerSos = () => {
     setSosSent(true);
     setTimeout(() => setSosSent(false), 6000);
+  };
+
+  // Weather Corridor Risk Data based on current rainy season scenario
+  const corridorRisks = useMemo<WeatherCorridorRisk[]>(() => {
+    if (weatherScenario === 'PEAK_RAIN') {
+      return [
+        {
+          id: 'risk-01',
+          corridorName: 'Axe Kisangani - Banalia - Buta (Forêt Équatoriale)',
+          roadNumber: 'RN4',
+          provinces: 'Tshopo & Bas-Uélé',
+          rainfallMm24h: 78,
+          soilSaturationPercent: 96,
+          riskLevel: 'CRITIQUE_ROUGE',
+          predictedImpassableDurationDays: 6,
+          criticalPoints: [
+            'PK 48 : Bourbier de 120m infranchissable aux camions > 5T',
+            'PK 92 : Ponton bois dégradé avec risque d\'effondrement sous crue',
+            'PK 115 : Débordement rivière Aruwimi'
+          ],
+          impactedSites: [
+            {
+              siteName: 'Pont de Franchissement Lindi & Piste Forestière',
+              sector: 'BTP / Infrastructure',
+              delayDays: 7,
+              financialExposureUsd: 480000,
+              contingencyAction: 'Acheminement d\'urgence par pirogues motorisées et grue mobile légère.'
+            }
+          ]
+        },
+        {
+          id: 'risk-02',
+          corridorName: 'Axe Kananga - Luiza - Tshikapa (Sables & Gués)',
+          roadNumber: 'RN1',
+          provinces: 'Kasaï-Central',
+          rainfallMm24h: 52,
+          soilSaturationPercent: 84,
+          riskLevel: 'ELEVE_ORANGE',
+          predictedImpassableDurationDays: 4,
+          criticalPoints: [
+            'Traversée du bac Lulua interrompue pour débit torrentiel',
+            'Zone de sables mouvants liquéfiés au PK 65'
+          ],
+          impactedSites: [
+            {
+              siteName: 'Forage Solaire & Adduction d\'Eau de Luiza',
+              sector: 'WASH / Eau Potable',
+              delayDays: 4,
+              financialExposureUsd: 220000,
+              contingencyAction: 'Stockage temporaire des tuyaux PEHD dans l\'entrepôt relais de Kananga.'
+            }
+          ]
+        },
+        {
+          id: 'risk-03',
+          corridorName: 'Axe Beni - Mutwanga - Kasindi (Pentes Ruwenzori)',
+          roadNumber: 'RN2 / Dérivation',
+          provinces: 'Nord-Kivu',
+          rainfallMm24h: 60,
+          soilSaturationPercent: 89,
+          riskLevel: 'ELEVE_ORANGE',
+          predictedImpassableDurationDays: 3,
+          criticalPoints: [
+            'PK 34 : Éboulement de talus latéritique sur la piste de dérivation',
+            'Coulée de boue dans les lacets de montagne'
+          ],
+          impactedSites: [
+            {
+              siteName: 'Micro-Barrage Hydroélectrique de Mutwanga',
+              sector: 'Énergie / Électrification',
+              delayDays: 3,
+              financialExposureUsd: 850000,
+              contingencyAction: 'Déblaiement mécanique avec pelleteuse chenillée mise à disposition par le parc.'
+            }
+          ]
+        },
+        {
+          id: 'risk-04',
+          corridorName: 'Axe Matadi - Kimpese - Lukala (Savane Ouest)',
+          roadNumber: 'RN1 Ouest',
+          provinces: 'Kongo Central',
+          rainfallMm24h: 18,
+          soilSaturationPercent: 44,
+          riskLevel: 'FAIBLE_VERT',
+          predictedImpassableDurationDays: 0,
+          criticalPoints: [
+            'Chaussée asphaltée dégagée',
+            'Pistes secondaires praticables en transmission intégrale 4x4'
+          ],
+          impactedSites: [
+            {
+              siteName: 'Complexe Silos & Greniers Vivriers de Kimpese',
+              sector: 'Agriculture & Sécurité Alimentaire',
+              delayDays: 0,
+              financialExposureUsd: 0,
+              contingencyAction: 'Poursuite nominale du calendrier d\'installation des moulins solaires.'
+            }
+          ]
+        }
+      ];
+    } else if (weatherScenario === 'MODERATE_RAIN') {
+      return [
+        {
+          id: 'risk-01',
+          corridorName: 'Axe Kisangani - Banalia - Buta',
+          roadNumber: 'RN4',
+          provinces: 'Tshopo & Bas-Uélé',
+          rainfallMm24h: 34,
+          soilSaturationPercent: 68,
+          riskLevel: 'ELEVE_ORANGE',
+          predictedImpassableDurationDays: 2,
+          criticalPoints: ['Bourbier modéré au PK 48 nécessitant treuillage des convois'],
+          impactedSites: [
+            {
+              siteName: 'Pont de Franchissement Lindi',
+              sector: 'BTP',
+              delayDays: 2,
+              financialExposureUsd: 480000,
+              contingencyAction: 'Convois 4x4 légers autorisés.'
+            }
+          ]
+        },
+        {
+          id: 'risk-02',
+          corridorName: 'Axe Kananga - Luiza',
+          roadNumber: 'RN1',
+          provinces: 'Kasaï-Central',
+          rainfallMm24h: 22,
+          soilSaturationPercent: 55,
+          riskLevel: 'MODERE_JAUNE',
+          predictedImpassableDurationDays: 1,
+          criticalPoints: ['Ralentissement au bac de la Lulua'],
+          impactedSites: [
+            {
+              siteName: 'Forage Solaire Luiza',
+              sector: 'WASH',
+              delayDays: 1,
+              financialExposureUsd: 220000,
+              contingencyAction: 'Vérification préalable par drone avant traversée.'
+            }
+          ]
+        },
+        {
+          id: 'risk-03',
+          corridorName: 'Axe Beni - Mutwanga',
+          roadNumber: 'RN2',
+          provinces: 'Nord-Kivu',
+          rainfallMm24h: 28,
+          soilSaturationPercent: 62,
+          riskLevel: 'MODERE_JAUNE',
+          predictedImpassableDurationDays: 1,
+          criticalPoints: ['Fissures de surface sur talus'],
+          impactedSites: [
+            {
+              siteName: 'Micro-Barrage Mutwanga',
+              sector: 'Énergie',
+              delayDays: 1,
+              financialExposureUsd: 850000,
+              contingencyAction: 'Surveillance sentinelle.'
+            }
+          ]
+        },
+        {
+          id: 'risk-04',
+          corridorName: 'Axe Matadi - Kimpese',
+          roadNumber: 'RN1 Ouest',
+          provinces: 'Kongo Central',
+          rainfallMm24h: 8,
+          soilSaturationPercent: 30,
+          riskLevel: 'FAIBLE_VERT',
+          predictedImpassableDurationDays: 0,
+          criticalPoints: ['Conditions optimales'],
+          impactedSites: [
+            {
+              siteName: 'Silos Kimpese',
+              sector: 'Agri',
+              delayDays: 0,
+              financialExposureUsd: 0,
+              contingencyAction: 'Nominal.'
+            }
+          ]
+        }
+      ];
+    } else {
+      // DRY_SEASON
+      return [
+        {
+          id: 'risk-01',
+          corridorName: 'Axe Kisangani - Banalia',
+          roadNumber: 'RN4',
+          provinces: 'Tshopo',
+          rainfallMm24h: 2,
+          soilSaturationPercent: 18,
+          riskLevel: 'FAIBLE_VERT',
+          predictedImpassableDurationDays: 0,
+          criticalPoints: ['Piste sèche et roulante'],
+          impactedSites: [
+            {
+              siteName: 'Pont Lindi',
+              sector: 'BTP',
+              delayDays: 0,
+              financialExposureUsd: 0,
+              contingencyAction: 'Trafic fluide sans restriction.'
+            }
+          ]
+        },
+        {
+          id: 'risk-02',
+          corridorName: 'Axe Kananga - Luiza',
+          roadNumber: 'RN1',
+          provinces: 'Kasaï-Central',
+          rainfallMm24h: 0,
+          soilSaturationPercent: 12,
+          riskLevel: 'FAIBLE_VERT',
+          predictedImpassableDurationDays: 0,
+          criticalPoints: ['Piste sablonneuse dégagée'],
+          impactedSites: [
+            {
+              siteName: 'Forage Luiza',
+              sector: 'WASH',
+              delayDays: 0,
+              financialExposureUsd: 0,
+              contingencyAction: 'Livraisons nominales.'
+            }
+          ]
+        }
+      ];
+    }
+  }, [weatherScenario]);
+
+  const criticalCorridorsCount = corridorRisks.filter(c => c.riskLevel === 'CRITIQUE_ROUGE' || c.riskLevel === 'ELEVE_ORANGE').length;
+  const totalImpactedSitesCount = corridorRisks.reduce((acc, c) => acc + c.impactedSites.length, 0);
+  const maxDelayPredictedDays = Math.max(...corridorRisks.flatMap(c => c.impactedSites.map(s => s.delayDays)), 0);
+  const totalFinancialExposure = corridorRisks.reduce((acc, c) => acc + c.impactedSites.reduce((sAcc, s) => sAcc + s.financialExposureUsd, 0), 0);
+
+  const handleNotifyLogisticsAlert = () => {
+    setAlertSentNotification("Bulletin d'alerte météorologique et prédiction d'impraticabilité diffusé aux superviseurs et entreprises de génie civil via SMS/Satellite !");
+    setTimeout(() => setAlertSentNotification(null), 6000);
   };
 
   return (
@@ -36,19 +317,28 @@ export const FleetDroneOperationsView: React.FC<FleetDroneOperationsViewProps> =
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg text-xs font-semibold">
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg text-xs font-semibold overflow-x-auto">
             <button
               onClick={() => setActiveTab('FLEET')}
-              className={`px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'FLEET' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Truck className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Tournées & Pistes Saison des Pluies</span>
+              <span>Tournées & Alertes Météo Pistes</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('DRONE_VISION')}
+              className={`px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === 'DRONE_VISION' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Video className="w-3.5 h-3.5 text-sky-700" />
+              <span>DroneVisionInspect (Flux Vidéo)</span>
             </button>
             <button
               onClick={() => setActiveTab('DRONE')}
-              className={`px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'DRONE' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -75,9 +365,258 @@ export const FleetDroneOperationsView: React.FC<FleetDroneOperationsViewProps> =
         </div>
       )}
 
+      {alertSentNotification && (
+        <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-950 font-semibold flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{alertSentNotification}</span>
+          </div>
+          <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">METTELSAT Sync</span>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* CONTEXTUAL METEOROLOGICAL PREDICTIVE ROAD BLOCKAGE ALERT (SAISON DES PLUIES) */}
+      {/* ========================================================================= */}
+      <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-slate-950 text-white rounded-2xl p-6 shadow-md border border-amber-900/50 space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-xs font-mono text-amber-400">
+              <CloudRain className="w-4 h-4 text-amber-400" />
+              <span>Modélisation Météo Prédictive & Vigilance Saison des Pluies RDC (METTELSAT / GPM)</span>
+            </div>
+            <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+              <span>Risques Météorologiques d'Enlisement & Prédiction d'Impact sur la Livraison des Chantiers</span>
+              {criticalCorridorsCount > 0 && (
+                <span className="bg-rose-500/90 text-white text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase animate-pulse">
+                  {criticalCorridorsCount} Corridor(s) en Alerte
+                </span>
+              )}
+            </h3>
+            <p className="text-xs text-slate-300 max-w-3xl leading-relaxed">
+              Croisement des données de précipitations satellites 24h/72h et de saturation des sols latéritiques pour anticiper les coupures de routes, les pontons submergés et le décalage des livraisons de matériaux BTP.
+            </p>
+          </div>
+
+          {/* Scenario Selector & Action */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <div className="flex items-center gap-1 bg-slate-800/90 p-1 rounded-lg text-xs font-semibold border border-slate-700">
+              <button
+                type="button"
+                onClick={() => setWeatherScenario('PEAK_RAIN')}
+                className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                  weatherScenario === 'PEAK_RAIN' ? 'bg-amber-600 text-white shadow-xs font-bold' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Pic Pluviométrie (Actuel)
+              </button>
+              <button
+                type="button"
+                onClick={() => setWeatherScenario('MODERATE_RAIN')}
+                className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                  weatherScenario === 'MODERATE_RAIN' ? 'bg-amber-600 text-white shadow-xs font-bold' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Averses Modérées
+              </button>
+              <button
+                type="button"
+                onClick={() => setWeatherScenario('DRY_SEASON')}
+                className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                  weatherScenario === 'DRY_SEASON' ? 'bg-amber-600 text-white shadow-xs font-bold' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Saison Sèche
+              </button>
+            </div>
+
+            <button
+              onClick={handleNotifyLogisticsAlert}
+              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+              title="Diffuser le bulletin d'alerte météo aux conducteurs de travaux"
+            >
+              <BellRing className="w-3.5 h-3.5" />
+              <span>Diffuser Alerte Météo</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Predictive Metrics Scoreboard */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 backdrop-blur-xs">
+            <span className="text-slate-400 text-[11px] block">Corridors Critiques</span>
+            <div className="text-2xl font-black font-mono text-rose-400 mt-1">
+              {criticalCorridorsCount} sur {corridorRisks.length}
+            </div>
+            <span className="text-[10px] text-slate-400">Axes à risque d'enlisement élevé</span>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 backdrop-blur-xs">
+            <span className="text-slate-400 text-[11px] block">Chantiers Affectés Directs</span>
+            <div className="text-2xl font-black font-mono text-amber-400 mt-1">
+              {totalImpactedSitesCount} site(s)
+            </div>
+            <span className="text-[10px] text-slate-400">Rupture d'approvisionnement</span>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 backdrop-blur-xs">
+            <span className="text-slate-400 text-[11px] block">Retard Prédictif Max</span>
+            <div className="text-2xl font-black font-mono text-white mt-1">
+              +{maxDelayPredictedDays} Jours
+            </div>
+            <span className="text-[10px] text-amber-300">Force majeure climatique reconnue</span>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 backdrop-blur-xs">
+            <span className="text-slate-400 text-[11px] block">Fonds Publics Exposés</span>
+            <div className="text-2xl font-black font-mono text-emerald-400 mt-1">
+              ${totalFinancialExposure.toLocaleString()} USD
+            </div>
+            <span className="text-[10px] text-slate-400">Tranches de paiement surveillées</span>
+          </div>
+        </div>
+
+        {/* Predictive Corridor Risk Table & Impact Details */}
+        {showWeatherDetails && (
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between text-xs text-slate-300">
+              <span className="font-bold uppercase tracking-wider text-[11px] text-amber-400">
+                Matrice Météorologique & Prédictions par Corridor Routier (RDC 2026)
+              </span>
+              <span className="text-slate-400 text-[10px] font-mono">
+                Satellite GPM IMERG 0.1° / Stations Physiques In-Situ
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {corridorRisks.map(corridor => {
+                const isCritical = corridor.riskLevel === 'CRITIQUE_ROUGE';
+                const isElevated = corridor.riskLevel === 'ELEVE_ORANGE';
+                return (
+                  <div 
+                    key={corridor.id}
+                    className={`rounded-xl p-4 border text-xs space-y-3 transition-colors ${
+                      isCritical
+                        ? 'bg-rose-950/40 border-rose-800/80'
+                        : isElevated
+                          ? 'bg-amber-950/40 border-amber-800/80'
+                          : 'bg-slate-900/60 border-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2 border-b border-white/10 pb-2">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-amber-300 text-[11px]">{corridor.roadNumber}</span>
+                          <span className="text-slate-400">·</span>
+                          <span className="text-slate-300 text-[11px]">{corridor.provinces}</span>
+                        </div>
+                        <h4 className="font-bold text-white text-sm mt-0.5">{corridor.corridorName}</h4>
+                      </div>
+
+                      <div className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                        isCritical
+                          ? 'bg-rose-500 text-white'
+                          : isElevated
+                            ? 'bg-amber-500 text-slate-950'
+                            : 'bg-emerald-600 text-white'
+                      }`}>
+                        {corridor.riskLevel.replace('_', ' ')}
+                      </div>
+                    </div>
+
+                    {/* Meteorological Indicators */}
+                    <div className="grid grid-cols-3 gap-2 bg-black/30 p-2.5 rounded-lg font-mono text-[11px]">
+                      <div>
+                        <span className="text-[9px] text-slate-400 block">PLUVIOMETRIE</span>
+                        <span className="font-bold text-sky-400 flex items-center gap-1">
+                          <Droplets className="w-3 h-3 text-sky-400" />
+                          {corridor.rainfallMm24h} mm/24h
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-400 block">SATURATION SOL</span>
+                        <span className={`font-bold ${corridor.soilSaturationPercent > 80 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                          {corridor.soilSaturationPercent}%
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-400 block">COUPURE ESTIMEE</span>
+                        <span className="font-bold text-amber-300">
+                          {corridor.predictedImpassableDurationDays > 0 ? `J+${corridor.predictedImpassableDurationDays}` : 'Praticable'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Critical blockage points */}
+                    <div className="space-y-1 text-[11px]">
+                      <span className="text-slate-400 font-semibold block text-[10px] uppercase">Points de Blocage Identifiés :</span>
+                      {corridor.criticalPoints.map((pt, i) => (
+                        <div key={i} className="text-slate-200 flex items-start gap-1.5 leading-snug">
+                          <span className="text-amber-400">•</span>
+                          <span>{pt}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Impact on construction site delivery */}
+                    <div className="p-2.5 bg-white/5 border border-white/10 rounded-lg space-y-1.5 text-[11px]">
+                      <span className="text-amber-300 font-bold block text-[10px] uppercase flex items-center gap-1">
+                        <AlertOctagon className="w-3 h-3" />
+                        Impact sur Livraison Chantier :
+                      </span>
+                      {corridor.impactedSites.map((siteItem, sIdx) => (
+                        <div key={sIdx} className="space-y-1">
+                          <div className="flex items-center justify-between text-white font-semibold">
+                            <span>{siteItem.siteName}</span>
+                            <span className="font-mono text-rose-300 font-bold">
+                              {siteItem.delayDays > 0 ? `+${siteItem.delayDays} jours retard` : 'Aucun retard'}
+                            </span>
+                          </div>
+                          <p className="text-slate-300 text-[10px] italic">
+                            Plan d'atténuation : {siteItem.contingencyAction}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Action trigger to inspect via DroneVisionInspect */}
+                    <div className="pt-1 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400 text-[10px]">
+                        Liaison satellite Starlink active
+                      </span>
+                      <button
+                        onClick={() => setActiveTab('DRONE_VISION')}
+                        className="text-sky-300 hover:text-sky-100 font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <Video className="w-3 h-3" />
+                        <span>Inspecter la Zone par Drone</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* PRIMARY TABS CONTENT */}
+      {/* ========================================================================= */}
+
       {/* TAB 1: Route Optimization & Impassable Tracks */}
       {activeTab === 'FLEET' && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-slate-900 text-sm">
+              Plannings des Tournées Logistiques 4x4 des Superviseurs Terrain
+            </span>
+            <span className="text-slate-500 font-mono">
+              Consommation & Sécurité des Équipes
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {fleetRoutes.map(route => (
               <div key={route.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4 text-xs">
@@ -131,9 +670,23 @@ export const FleetDroneOperationsView: React.FC<FleetDroneOperationsViewProps> =
         </div>
       )}
 
-      {/* TAB 2: Drone Photogrammetry */}
+      {/* TAB 2: Live Drone Video Streaming & Progress Inspection (DroneVisionInspect) */}
+      {activeTab === 'DRONE_VISION' && (
+        <DroneVisionInspect sites={sites} />
+      )}
+
+      {/* TAB 3: Drone Photogrammetry */}
       {activeTab === 'DRONE' && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-slate-900 text-sm">
+              Missions Photogrammétriques Aériennes & Calculs de Cubatures 3D
+            </span>
+            <span className="text-slate-500 font-mono">
+              Vecteurs Aériens Autonomes WGS84
+            </span>
+          </div>
+
           {droneMissions.map(drone => {
             const site = sites.find(s => s.id === drone.siteId);
             return (
